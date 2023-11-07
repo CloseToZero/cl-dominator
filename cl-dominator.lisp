@@ -8,7 +8,8 @@
           :initform (error "Must supply a entry node")
           :initarg :entry)
    (nodes :accessor nodes
-          :initform nil)))
+          :initform nil)
+   (num-of-nodes :accessor num-of-nodes :initform 0)))
 
 (defclass node ()
   ((name :accessor node-name
@@ -33,10 +34,12 @@
     (push entry (nodes flow-graph))
     flow-graph))
 
-(defun add-node (graph name)
+(defun add-node (flow-graph name)
   (let ((node (make-node name)))
-    (pushnew node (nodes graph) :key #'node-name :test #'string=)
-    node))
+    (let* ((old-first (first (nodes flow-graph))))
+      (unless (eq old-first (car (pushnew node (nodes flow-graph) :key #'node-name :test #'string=)))
+        (incf (num-of-nodes flow-graph)))
+      node)))
 
 (defvar *b0* (make-node "b0"))
 (defvar *flow-graph* (make-flow-graph *b0*))
@@ -72,18 +75,31 @@
       (convert-node (entry flow-graph))
       (format stream "}~%"))))
 
-(defun reachable (node black-node)
-  (let ((result nil)
-        (visited (make-hash-table)))
-    (labels ((rec (node)
-               (push node result)
+(defun dfs (node &key preorder-fn postorder-fn)
+  (let ((visited (make-hash-table)))
+    (labels ((rec (incoming-node node)
                (setf (gethash node visited) t)
-               (unless (eq node black-node)
-                 (loop for succ in (successors node)
-                       do (unless (or (eq succ black-node)
-                                      (gethash succ visited))
-                            (rec succ))))))
-      (rec node))
+               (let ((preorder-fn-result nil))
+                 (when preorder-fn
+                   (setf preorder-fn-result (funcall preorder-fn incoming-node node)))
+                 (unless (eql preorder-fn-result :skip)
+                   (loop for succ in (successors node)
+                         unless (gethash succ visited)
+                           do (rec node succ))))
+               (when postorder-fn
+                 (funcall postorder-fn incoming-node node))))
+      (rec nil node))))
+
+(defun reachable (node black-node)
+  (let ((result nil))
+    (dfs node
+         :preorder-fn
+         (lambda (incoming-node node)
+           (when (or (not (eq node black-node))
+                     (null incoming-node))
+             (push node result))
+           (when (eq node black-node)
+             :skip)))
     result))
 
 (defun dominator-purdom (flow-graph)
@@ -96,8 +112,6 @@
                (loop for no-reachable-node in no-reachable-nodes
                      do (push node (gethash no-reachable-node doms)))))
     doms))
-
-(defvar *doms* (dominator-purdom *flow-graph*))
 
 (defun idom-from-doms (target doms)
   (let ((target-doms (gethash target doms)))
@@ -116,8 +130,6 @@
           for idom = (idom-from-doms node doms)
             do (setf (gethash node idoms) idom))
     idoms))
-
-(defvar *idoms* (idoms-from-doms *doms*))
 
 (defun idoms->dominator-tree-graphviz (idoms stream)
   ;; abuse flow-graph as tree.
@@ -139,3 +151,52 @@
             do (link-nodes (gethash (node-name idom) name->tree-node)
                            (gethash (node-name node) name->tree-node)))
     (flow-graph->graphviz tree stream)))
+
+(defun reverse-postorder-nums (flow-graph)
+  (let ((num (1- (num-of-nodes flow-graph)))
+        (nums (make-hash-table)))
+    (dfs (entry flow-graph)
+         :postorder-fn
+         (lambda (incoming-node node)
+           (declare (ignore incoming-node))
+           (setf (gethash node nums) num)
+           (decf num)))
+    nums))
+
+(defun nodes-in-reverse-postorder (flow-graph)
+  (let ((nums (reverse-postorder-nums flow-graph)))
+    (sort (copy-list (nodes flow-graph))
+          (lambda (node1 node2)
+            (< (gethash node1 nums)
+               (gethash node2 nums))))))
+
+(defun dominator-iterative (flow-graph)
+  (let ((change t)
+        (entry (entry flow-graph))
+        (nodes (nodes-in-reverse-postorder flow-graph))
+        (doms (make-hash-table)))
+    (loop for node in nodes
+          do (cond ((eq node entry)
+                    (setf (gethash node doms) (list entry)))
+                   (t (setf (gethash node doms) nodes))))
+    (loop while change
+          do (setf change nil)
+             (loop for node in nodes
+                   do  (let ((result (let ((predecessor (car (predecessors node))))
+                                       (when predecessor
+                                         (gethash predecessor doms)))))
+                         (loop for predecessor in (cdr (predecessors node))
+                               do (setf result (intersection result (gethash predecessor doms))))
+                         (setf result (union result (list node)))
+                         (unless (null (set-exclusive-or result (gethash node doms)))
+                           (setf (gethash node doms) result)
+                           (setf change t)))))
+    doms))
+
+(defvar *purdom-doms* (dominator-purdom *flow-graph*))
+(defvar *purdom-idoms* (idoms-from-doms *purdom-doms*))
+;; (idoms->dominator-tree-graphviz *purdom-idoms* t)
+
+(defvar *iterative-doms* (dominator-iterative *flow-graph*))
+(defvar *iterative-idoms* (idoms-from-doms *iterative-doms*))
+;; (idoms->dominator-tree-graphviz *iterative-idoms* t)
