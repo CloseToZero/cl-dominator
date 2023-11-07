@@ -141,11 +141,9 @@
          (name->tree-node (make-hash-table :test #'equal)))
     (loop for node being the hash-keys of idoms
             using (hash-value idom)
-          do
-             (let* ((node-name (node-name node))
-                    (tree-node (add-node-by-name tree node-name)))
+          do (let ((node-name (node-name node)))
                (if idom
-                   (setf (gethash node-name name->tree-node) tree-node)
+                   (setf (gethash node-name name->tree-node) (add-node-by-name tree node-name))
                    (progn (setf (node-name root) node-name)
                           (setf (gethash node-name name->tree-node) root)))))
     (loop for node being the hash-keys of idoms
