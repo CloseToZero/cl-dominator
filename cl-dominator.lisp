@@ -275,5 +275,5 @@
 (defvar *cooper-idoms* (dominator-cooper *flow-graph*))
 ;; (idoms->dominator-tree-graphviz *cooper-idoms* t)
 
-(defvar *random-flow-graph* (random-flow-graph 30000))
+(defvar *random-flow-graph* (random-flow-graph 1000))
 ;; (flow-graph->graphviz *random-graph*)
