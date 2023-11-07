@@ -1,6 +1,6 @@
 # Dominator algorithms
 
-Include the following commonly used dominator algorithm:
+Include the following commonly used dominator algorithms:
 
 1. Purdom algorithm
 2. Iterative algorithm
