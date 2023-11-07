@@ -165,10 +165,11 @@
 
 (defun nodes-in-reverse-postorder (flow-graph)
   (let ((nums (reverse-postorder-nums flow-graph)))
-    (sort (copy-list (nodes flow-graph))
-          (lambda (node1 node2)
-            (< (gethash node1 nums)
-               (gethash node2 nums))))))
+    (values (sort (copy-list (nodes flow-graph))
+                  (lambda (node1 node2)
+                    (< (gethash node1 nums)
+                       (gethash node2 nums))))
+            nums)))
 
 (defun dominator-iterative (flow-graph)
   (let ((change t)
@@ -193,6 +194,35 @@
                            (setf change t)))))
     doms))
 
+(defun dominator-cooper (flow-graph)
+  (let ((change t)
+        (idoms (make-hash-table)))
+    (setf (gethash (entry flow-graph) idoms) nil)
+    (multiple-value-bind (nodes rpo-nums) (nodes-in-reverse-postorder flow-graph)
+      (labels ((intersect (node1 node2)
+                 (cond ((null (gethash node1 idoms)) node2)
+                       ((null (gethash node2 idoms)) node1)
+                       (t (loop for rpo1 = (gethash node1 rpo-nums)
+                                for rpo2 = (gethash node2 rpo-nums)
+                                for idom1 = (gethash node1 idoms)
+                                for idom2 = (gethash node2 idoms)
+                                while (/= rpo1 rpo2)
+                                when (> rpo1 rpo2)
+                                  do (setf node1 idom1)
+                                else
+                                  do (setf node2 idom2)
+                                finally (return node1))))))
+        (loop while change
+              do (setf change nil)
+                 (loop for node in nodes
+                       do (let ((new-idom nil))
+                            (loop for predecessor in (predecessors node)
+                                  do (setf new-idom (intersect new-idom predecessor)))
+                            (unless (eq (gethash node idoms) new-idom)
+                              (setf (gethash node idoms) new-idom)
+                              (setf change t)))))))
+    idoms))
+
 (defvar *purdom-doms* (dominator-purdom *flow-graph*))
 (defvar *purdom-idoms* (idoms-from-doms *purdom-doms*))
 ;; (idoms->dominator-tree-graphviz *purdom-idoms* t)
@@ -200,3 +230,6 @@
 (defvar *iterative-doms* (dominator-iterative *flow-graph*))
 (defvar *iterative-idoms* (idoms-from-doms *iterative-doms*))
 ;; (idoms->dominator-tree-graphviz *iterative-idoms* t)
+
+(defvar *cooper-idoms* (dominator-cooper *flow-graph*))
+;; (idoms->dominator-tree-graphviz *cooper-idoms* t)
