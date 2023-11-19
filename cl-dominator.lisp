@@ -153,6 +153,20 @@
                            (gethash (node-name node) name->tree-node)))
     (flow-graph->graphviz tree stream)))
 
+(defun %dominator-trees-equal (idoms1 idoms2)
+  (and (eql (hash-table-size idoms1)
+            (hash-table-size idoms2))
+       (loop for node1 being the hash-keys of idoms1
+               using (hash-value idom1)
+             always
+             (eq idom1 (gethash node1 idoms2)))))
+
+(defun dominator-trees-equal (&rest more-idoms)
+  (and more-idoms
+       (loop for prev in more-idoms
+             for next in (cdr more-idoms)
+             always (%dominator-trees-equal prev next))))
+
 (defun reverse-postorder-nums (flow-graph)
   (let ((num (1- (num-of-nodes flow-graph)))
         (nums (make-hash-table)))
@@ -274,6 +288,8 @@
 
 (defvar *cooper-idoms* (dominator-cooper *flow-graph*))
 ;; (idoms->dominator-tree-graphviz *cooper-idoms* t)
+
+(assert (dominator-trees-equal *purdom-idoms* *iterative-idoms* *cooper-idoms*))
 
 (defvar *random-flow-graph* (random-flow-graph 1000))
 ;; (flow-graph->graphviz *random-graph*)
