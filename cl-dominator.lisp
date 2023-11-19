@@ -213,6 +213,20 @@
            (decf num)))
     (values nodes nums)))
 
+(defun nodes-in-preorder (flow-graph)
+  (let ((num 0)
+        (nums (make-hash-table))
+        (parents (make-hash-table))
+        (nodes nil))
+    (dfs (entry flow-graph)
+         :preorder-fn
+         (lambda (incoming-node node)
+           (setf (gethash node nums) num)
+           (setf (gethash node parents) incoming-node)
+           (push node nodes)
+           (incf num)))
+    (values (reverse nodes) nums parents)))
+
 (defun dominator-iterative (flow-graph)
   (let ((change t)
         (entry (entry flow-graph))
@@ -272,6 +286,64 @@
     (setf (gethash (entry flow-graph) idoms) nil)
     idoms))
 
+(defun dominator-tarjan-simple-eval (node pre-nums ancestors labels semi-doms)
+  (cond ((null (gethash node ancestors))
+         node)
+        (t
+         (dominator-tarjan-simple-compress node pre-nums ancestors labels semi-doms)
+         (gethash node labels))))
+
+(defun dominator-tarjan-simple-compress (node pre-nums ancestors labels semi-doms)
+  ;; assume (gethash node ancestors) is not null
+  (when (gethash (gethash node ancestors) ancestors)
+    (dominator-tarjan-simple-compress
+     (gethash node ancestors) pre-nums ancestors labels semi-doms)
+    (when (< (gethash (gethash (gethash (gethash node ancestors) labels) semi-doms) pre-nums)
+             (gethash (gethash (gethash node labels) semi-doms) pre-nums))
+      (setf (gethash node labels)
+            (gethash (gethash node ancestors) labels)))
+    (setf (gethash node ancestors)
+          (gethash (gethash node ancestors) ancestors))))
+
+(defun dominator-tarjan-simple (flow-graph)
+  (multiple-value-bind (nodes pre-nums parents) (nodes-in-preorder flow-graph)
+    (let ((ancestors (make-hash-table))
+          (labels (make-hash-table))
+          (semi-doms (make-hash-table))
+          (buckets (make-hash-table))
+          (idoms (make-hash-table)))
+      (loop for node in nodes
+            do (setf (gethash node semi-doms) node)
+               (setf (gethash node labels) node))
+      ;; ignore entry node, processing nodes in preorder number descending order
+      (loop for node in (reverse (cdr nodes))
+            do (loop for predecessor in (predecessors node)
+                     do (let ((min-semi-node
+                                (dominator-tarjan-simple-eval
+                                 predecessor pre-nums ancestors labels semi-doms)))
+                          (cond ((< (gethash (gethash min-semi-node semi-doms) pre-nums)
+                                    (gethash (gethash node semi-doms) pre-nums))
+                                 (setf (gethash node semi-doms)
+                                       (gethash min-semi-node semi-doms))))))
+               (push node (gethash (gethash node semi-doms) buckets))
+               (setf (gethash node ancestors) (gethash node parents))
+               (loop for b-node in (gethash (gethash node parents) buckets)
+                     do (let ((min-semi-node
+                                (dominator-tarjan-simple-eval
+                                 b-node pre-nums ancestors labels semi-doms)))
+                          (setf (gethash b-node idoms)
+                                (if (< (gethash (gethash min-semi-node semi-doms) pre-nums)
+                                       (gethash (gethash b-node semi-doms) pre-nums))
+                                    min-semi-node
+                                    (gethash node parents)))))
+               (setf (gethash (gethash node parents) buckets) nil))
+      (loop for node in (cdr nodes)
+            when (not (eql (gethash node idoms) (gethash node semi-doms)))
+              do (setf (gethash node idoms)
+                       (gethash (gethash node idoms) idoms)))
+      (setf (gethash (entry flow-graph) idoms) nil)
+      idoms)))
+
 (defvar *purdom-doms* (dominator-purdom *flow-graph*))
 (defvar *purdom-idoms* (idoms-from-doms *purdom-doms*))
 ;; (idoms->dominator-tree-graphviz *purdom-idoms* t)
@@ -283,11 +355,34 @@
 (defvar *cooper-idoms* (dominator-cooper *flow-graph*))
 ;; (idoms->dominator-tree-graphviz *cooper-idoms* t)
 
-(assert (dominator-trees-equal *purdom-idoms* *iterative-idoms* *cooper-idoms*))
+(defvar *tarjan-simple-idoms* (dominator-tarjan-simple *flow-graph*))
+;; (idoms->dominator-tree-graphviz *tarjan-simple-idoms* t)
+
+(assert (dominator-trees-equal
+         *purdom-idoms*
+         *iterative-idoms*
+         *cooper-idoms*
+         *tarjan-simple-idoms*))
 
 (defvar *random-flow-graph* (random-flow-graph 1000))
 ;; (flow-graph->graphviz *random-graph*)
 ;; (assert (dominator-trees-equal
 ;;          (idoms-from-doms (dominator-purdom *random-flow-graph*))
 ;;          (idoms-from-doms (dominator-iterative *random-flow-graph*))
-;;          (dominator-cooper *random-flow-graph*)))
+;;          (dominator-cooper *random-flow-graph*)
+;;          (dominator-tarjan-simple *random-flow-graph*)))
+
+;; (progn
+;;   (let ((count 10))
+;;     (format t "~&purdom:~%")
+;;     (trivial-benchmark:with-timing (count)
+;;       (dominator-purdom *random-flow-graph*))
+;;     (format t "~%~%iterative:~%")
+;;     (trivial-benchmark:with-timing (count)
+;;       (dominator-iterative *random-flow-graph*))
+;;     (format t "~%~%cooper:~%")
+;;     (trivial-benchmark:with-timing (count)
+;;       (dominator-cooper *random-flow-graph*))
+;;     (format t "~%~%tarjan-simple:~%")
+;;     (trivial-benchmark:with-timing (count)
+;;       (dominator-tarjan-simple *random-flow-graph*))))
