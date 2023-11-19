@@ -36,9 +36,9 @@
 
 (defun add-node (flow-graph node)
   (let* ((old-first (first (nodes flow-graph))))
-      (unless (eq old-first (car (pushnew node (nodes flow-graph) :key #'node-name :test #'string=)))
-        (incf (num-of-nodes flow-graph)))
-      node))
+    (unless (eq old-first (car (pushnew node (nodes flow-graph) :key #'node-name :test #'string=)))
+      (incf (num-of-nodes flow-graph)))
+    node))
 
 (defun add-node-by-name (flow-graph name)
   (let ((node (make-node name)))
@@ -164,7 +164,7 @@
   (let ((idoms (make-hash-table)))
     (loop for node being the hash-keys of doms
           for idom = (idom-from-doms node doms)
-            do (setf (gethash node idoms) idom))
+          do (setf (gethash node idoms) idom))
     idoms))
 
 (defun idoms->dominator-tree-graphviz (idoms stream)
@@ -239,15 +239,15 @@
     (loop while change
           do (setf change nil)
              (loop for node in nodes
-                   do  (let ((result (let ((predecessor (car (predecessors node))))
-                                       (when predecessor
-                                         (gethash predecessor doms)))))
-                         (loop for predecessor in (cdr (predecessors node))
-                               do (setf result (intersection result (gethash predecessor doms))))
-                         (setf result (union result (list node)))
-                         (unless (null (set-exclusive-or result (gethash node doms)))
-                           (setf (gethash node doms) result)
-                           (setf change t)))))
+                   do (let ((result (let ((predecessor (car (predecessors node))))
+                                      (when predecessor
+                                        (gethash predecessor doms)))))
+                        (loop for predecessor in (cdr (predecessors node))
+                              do (setf result (intersection result (gethash predecessor doms))))
+                        (setf result (union result (list node)))
+                        (unless (null (set-exclusive-or result (gethash node doms)))
+                          (setf (gethash node doms) result)
+                          (setf change t)))))
     doms))
 
 (defun dominator-cooper (flow-graph)
