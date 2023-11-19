@@ -293,3 +293,7 @@
 
 (defvar *random-flow-graph* (random-flow-graph 1000))
 ;; (flow-graph->graphviz *random-graph*)
+;; (assert (dominator-trees-equal
+;;          (idoms-from-doms (dominator-purdom *random-flow-graph*))
+;;          (idoms-from-doms (dominator-iterative *random-flow-graph*))
+;;          (dominator-cooper *random-flow-graph*)))
