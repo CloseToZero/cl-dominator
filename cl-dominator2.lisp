@@ -106,14 +106,59 @@
 (link-nodes *node-7* *node-3*)
 (link-nodes *node-3* *node-4*)
 
-(defun reachable (node)
-  (let ((visited (make-hash-table)))
+(defclass hash-set ()
+  ((table
+    :accessor table
+    :initform (error "Must supply a table")
+    :initarg :table)
+   (test
+    :accessor test
+    :initform (error "Must supply the test function of the table")
+    :initarg :test)))
+
+(defun make-hash-set (&key (test #'equal))
+  (make-instance 'hash-set
+                 :table (make-hash-table :test test)
+                 :test test))
+
+(defun hash-set-add (hash-set element)
+  (setf (gethash element (table hash-set)) t))
+
+(defun hash-set-remove (hash-set element)
+  (remhash element (table hash-set)))
+
+(defun hash-set-exists (hash-set element)
+  (gethash element (table hash-set)))
+
+(defmacro do-hash-set ((var hash-set-form) &body body)
+  (let ((body-fn-var (gensym "body-fn-var"))
+        (element-var (gensym "element"))
+        (value-var (gensym "value")))
+    `(let ((,body-fn-var (lambda (,var) ,@body)))
+       (maphash (lambda (,element-var ,value-var)
+                  (declare (ignore ,value-var))
+                  (funcall ,body-fn-var ,element-var))
+                (table ,hash-set-form)))))
+
+(defun hash-set-difference (hash-set-1 hash-set-2)
+  (assert (eql (test hash-set-1) (test hash-set-2)))
+  (let ((result (make-hash-set :test (test hash-set-1))))
+    (do-hash-set (element hash-set-1)
+      (unless (hash-set-exists hash-set-2 element)
+        (hash-set-add result element)))
+    result))
+
+(defun reachable (node &optional ignore-node)
+  (let ((visited (make-hash-set)))
     (labels ((rec (node)
-               (setf (gethash node visited) t)
+               (hash-set-add visited node)
                (dolist (succ (successors node))
-                 (unless (gethash succ visited)
+                 (unless (or (hash-set-exists visited succ)
+                             (eql succ ignore-node))
                    (rec succ)))))
-      (rec node))
+      (if (eql node ignore-node)
+          (hash-set-add visited node)
+          (rec node)))
     visited))
 
 (defun verify-flow-graph (flow-graph &optional (allow-link-to-entry t))
@@ -124,7 +169,8 @@ A FLOW-GRAPH is valid if and only if the following are true:
   (unless allow-link-to-entry
     (assert (null (predecessors (entry flow-graph)))))
   (let ((reachable (reachable (entry flow-graph))))
-    (every (lambda (node) (gethash node reachable)) (nodes flow-graph)))
+    (every (lambda (node) (hash-set-exists reachable node))
+           (nodes flow-graph)))
   (values))
 
 (verify-flow-graph *flow-graph* nil)
