@@ -148,6 +148,15 @@
         (hash-set-add result element)))
     result))
 
+(defun hash-set-notany (hash-set predicate &optional ignore)
+  (block nil
+    (do-hash-set (element hash-set)
+      (when (and (or (null ignore)
+                     (not (funcall ignore element)))
+                 (funcall predicate element))
+        (return nil)))
+    t))
+
 (defun reachable (node &optional ignore-node)
   (let ((visited (make-hash-set)))
     (labels ((rec (node)
@@ -174,3 +183,70 @@ A FLOW-GRAPH is valid if and only if the following are true:
   (values))
 
 (verify-flow-graph *flow-graph* nil)
+
+(defun dominator-purdom (flow-graph)
+  "Compute the dominators of each node within the FLOW-GRAPH.
+The result is returned as a hash-table, with nodes of FLOW-GRAPH
+as key and corresponding dominators as values.
+Each node's dominators is stored as hash-set."
+  (let ((result (make-hash-table)))
+    (dolist (node (nodes flow-graph))
+      (setf (gethash node result) (make-hash-set)))
+    (hash-set-add (gethash (entry flow-graph) result) (entry flow-graph))
+    (dolist (node (nodes flow-graph))
+      (let ((reachable-before (reachable (entry flow-graph)))
+            (reachable-after (reachable (entry flow-graph) node)))
+        (do-hash-set (node-2 (hash-set-difference reachable-before
+                                                  reachable-after))
+          (hash-set-add (gethash node-2 result) node))))
+    result))
+
+(defun doms-table->idoms-table (doms-table)
+  "Convert dominators to immediate dominators.
+DOMS-TABLE is a hash table with nodes as keys and
+corresponding dominators hash-set as values.
+Returns immediate dominators as a hash table with nodes as keys
+and corresponding immediate dominator as values.
+Note that the entry node will always exist as a key,
+and its value will be nil."
+  (let ((result (make-hash-table)))
+    (maphash
+     (lambda (node doms)
+       (let ((value-set nil))
+         (do-hash-set (dom doms)
+           (when (and (not (eql dom node))
+                      (hash-set-notany
+                       doms
+                       (lambda (dom-2)
+                         (hash-set-exists (gethash dom-2 doms-table) dom))
+                       (lambda (dom-2)
+                         (or (eql dom-2 dom)
+                             (eql dom-2 node)))))
+             (setf (gethash node result) dom)
+             (setf value-set t)))
+         (unless value-set (setf (gethash node result) nil))))
+     doms-table)
+    result))
+
+(defun idoms-table->graph (idoms-table)
+  (let ((tree (make-graph))
+        (to-tree-node (make-hash-table)))
+    (maphash (lambda (node idom)
+               (declare (ignore idom))
+               (setf (gethash node to-tree-node)
+                     (make-graph-node tree :name (name node))))
+             idoms-table)
+    (maphash (lambda (node idom)
+               (let ((node-tree-node (gethash node to-tree-node))
+                     (idom-tree-node (gethash idom to-tree-node)))
+                 (when idom-tree-node
+                   (link-nodes idom-tree-node node-tree-node))))
+             idoms-table)
+    (values tree to-tree-node)))
+
+(defun idoms-table->graphviz (idoms-table)
+  (graph->graphviz (idoms-table->graph idoms-table)))
+
+(defvar *purdom-doms* (dominator-purdom *flow-graph*))
+(defvar *purdom-idoms* (doms-table->idoms-table *purdom-doms*))
+(idoms-table->graphviz *purdom-idoms*)
