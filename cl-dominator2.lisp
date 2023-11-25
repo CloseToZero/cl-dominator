@@ -105,3 +105,26 @@
 (link-nodes *node-8* *node-7*)
 (link-nodes *node-7* *node-3*)
 (link-nodes *node-3* *node-4*)
+
+(defun reachable (node)
+  (let ((visited (make-hash-table)))
+    (labels ((rec (node)
+               (setf (gethash node visited) t)
+               (dolist (succ (successors node))
+                 (unless (gethash succ visited)
+                   (rec succ)))))
+      (rec node))
+    visited))
+
+(defun verify-flow-graph (flow-graph &optional (allow-link-to-entry t))
+  "Verify whether the FLOW-GRAPH is valid, signals an error if it's invalid.
+A FLOW-GRAPH is valid if and only if the following are true:
+1. Every nodes of FLOW-GRAPH is reachabled from the entry node.
+2. If ALLOW-LINK-TO-ENTRY is nil, there are no nodes link to the entry node."
+  (unless allow-link-to-entry
+    (assert (null (predecessors (entry flow-graph)))))
+  (let ((reachable (reachable (entry flow-graph))))
+    (every (lambda (node) (gethash node reachable)) (nodes flow-graph)))
+  (values))
+
+(verify-flow-graph *flow-graph* nil)
