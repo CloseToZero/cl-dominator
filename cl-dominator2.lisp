@@ -228,6 +228,18 @@ and its value will be nil."
      doms-table)
     result))
 
+(defun idoms-table-equal (idoms-table-1 idoms-table-2)
+  (and (eql (hash-table-size idoms-table-1)
+            (hash-table-size idoms-table-2))
+       (let ((result t))
+         (block nil
+           (maphash (lambda (node idom)
+                      (unless (eql (gethash node idoms-table-2) idom)
+                        (setf result nil)
+                        (return)))
+                    idoms-table-1))
+         result)))
+
 (defun idoms-table->graph (idoms-table)
   (let ((tree (make-graph))
         (to-tree-node (make-hash-table)))
@@ -247,6 +259,22 @@ and its value will be nil."
 (defun idoms-table->graphviz (idoms-table)
   (graph->graphviz (idoms-table->graph idoms-table)))
 
+(defvar *expected-idoms*
+  (let ((table (make-hash-table)))
+    (dolist (pair (list (list *node-0* nil)
+                        (list *node-1* *node-0*)
+                        (list *node-2* *node-1*)
+                        (list *node-3* *node-1*)
+                        (list *node-4* *node-3*)
+                        (list *node-5* *node-1*)
+                        (list *node-6* *node-5*)
+                        (list *node-7* *node-5*)
+                        (list *node-8* *node-5*)))
+      (setf (gethash (first pair) table) (second pair)))
+    table))
+
 (defvar *purdom-doms* (dominator-purdom *flow-graph*))
 (defvar *purdom-idoms* (doms-table->idoms-table *purdom-doms*))
-(idoms-table->graphviz *purdom-idoms*)
+;; (idoms-table->graphviz *purdom-idoms*)
+
+(assert (idoms-table-equal *purdom-idoms* *expected-idoms*))
