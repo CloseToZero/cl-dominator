@@ -121,6 +121,9 @@
                  :table (make-hash-table :test test)
                  :test test))
 
+(defun hash-set-count (hash-set)
+  (hash-table-count (table hash-set)))
+
 (defun hash-set-add (hash-set element)
   (setf (gethash element (table hash-set)) t))
 
@@ -140,13 +143,44 @@
                   (funcall ,body-fn-var ,element-var))
                 (table ,hash-set-form)))))
 
+;; It seems not a good idea to specialize on `print-object',
+;; the number of hash-set elements may be large.
+(defun print-hash-set (hash-set &optional (stream t))
+  (format stream "{")
+  (let ((first t))
+    (do-hash-set (element hash-set)
+      (unless first (format stream " "))
+      (prin1 element stream)
+      (setf first nil)))
+  (format stream "}"))
+
+(defun hash-set-copy (hash-set)
+  (let ((result (make-hash-set)))
+    (do-hash-set (element hash-set)
+      (hash-set-add result element))
+    result))
+
 (defun hash-set-difference (hash-set-1 hash-set-2)
-  (assert (eql (test hash-set-1) (test hash-set-2)))
   (let ((result (make-hash-set :test (test hash-set-1))))
     (do-hash-set (element hash-set-1)
       (unless (hash-set-exists hash-set-2 element)
         (hash-set-add result element)))
     result))
+
+(defun hash-set-intersection (hash-set-1 hash-set-2)
+  (let ((result (make-hash-set :test (test hash-set-1))))
+    (do-hash-set (element hash-set-1)
+      (when (hash-set-exists hash-set-2 element)
+        (hash-set-add result element)))
+    result))
+
+(defun hash-set-intersection* (&rest hash-sets)
+  (if (null hash-sets)
+      (make-hash-set)
+      (reduce (lambda (acc hash-set)
+                (hash-set-intersection acc hash-set))
+              (rest hash-sets)
+              :initial-value (hash-set-copy (first hash-sets)))))
 
 (defun hash-set-notany (hash-set predicate &optional ignore)
   (block nil
@@ -156,6 +190,22 @@
                  (funcall predicate element))
         (return nil)))
     t))
+
+(defun hash-set-every (hash-set predicate &optional ignore)
+  (block nil
+    (do-hash-set (element hash-set)
+      (when (and (or (null ignore)
+                     (not (funcall ignore element)))
+                 (not (funcall predicate element)))
+        (return nil)))
+    t))
+
+(defun hash-set-equal (hash-set-1 hash-set-2)
+  (and (eql (hash-set-count hash-set-1)
+            (hash-set-count hash-set-2))
+       (hash-set-every hash-set-1
+                       (lambda (element)
+                         (hash-set-exists hash-set-2 element)))))
 
 (defun reachable (node &optional ignore-node)
   (let ((visited (make-hash-set)))
@@ -169,6 +219,19 @@
           (hash-set-add visited node)
           (rec node)))
     visited))
+
+(defun nodes-in-reverse-postorder (start-node)
+  ;; TODO build a fine abstraction to remove duplicates.
+  (let ((nodes nil)
+        (visited (make-hash-set)))
+    (labels ((rec (node)
+               (hash-set-add visited node)
+               (dolist (succ (successors node))
+                 (unless (hash-set-exists visited succ)
+                   (rec succ)))
+               (push node nodes)))
+      (rec start-node))
+    nodes))
 
 (defun verify-flow-graph (flow-graph &optional (allow-link-to-entry t))
   "Verify whether the FLOW-GRAPH is valid, signals an error if it's invalid.
@@ -185,7 +248,8 @@ A FLOW-GRAPH is valid if and only if the following are true:
 (verify-flow-graph *flow-graph* nil)
 
 (defun dominator-purdom (flow-graph)
-  "Compute the dominators of each node within the FLOW-GRAPH.
+  "Compute the dominators of each node within the FLOW-GRAPH
+using the Purdom algorithm.
 The result is returned as a hash-table, with nodes of FLOW-GRAPH
 as key and corresponding dominators as values.
 Each node's dominators is stored as hash-set."
@@ -200,6 +264,37 @@ Each node's dominators is stored as hash-set."
                                                   reachable-after))
           (hash-set-add (gethash node-2 result) node))))
     result))
+
+(defun dominator-iterative (flow-graph)
+  "Compute the dominators of each node within the FLOW-GRAPH
+using the iterative algorithm.
+The format of the result is the same as `dominator-purdom'."
+  ;; Verify the flow-graph, the iterative algorithm doesn't allow the
+  ;; entry node has any predecessors.
+  (verify-flow-graph *flow-graph* nil)
+  (do ((doms-table
+        (let ((doms-table (make-hash-table))
+              (entry (entry flow-graph)))
+          (dolist (node (nodes flow-graph))
+            (let ((hash-set (make-hash-set)))
+              (cond ((eql node entry)
+                     (hash-set-add hash-set node))
+                    (t
+                     (dolist (node (nodes flow-graph))
+                       (hash-set-add hash-set node))))
+              (setf (gethash node doms-table) hash-set)))
+          doms-table))
+       (changed t))
+      ((not changed) doms-table)
+    (setf changed nil)
+    (dolist (node (nodes-in-reverse-postorder (entry *flow-graph*)))
+      (let ((new-doms (apply #'hash-set-intersection*
+                             (mapcar (lambda (node) (gethash node doms-table))
+                                     (predecessors node)))))
+        (hash-set-add new-doms node)
+        (unless (hash-set-equal new-doms (gethash node doms-table))
+          (setf (gethash node doms-table) new-doms)
+          (setf changed t))))))
 
 (defun doms-table->idoms-table (doms-table)
   "Convert dominators to immediate dominators.
@@ -275,6 +370,10 @@ and its value will be nil."
 
 (defvar *purdom-doms* (dominator-purdom *flow-graph*))
 (defvar *purdom-idoms* (doms-table->idoms-table *purdom-doms*))
+(assert (idoms-table-equal *purdom-idoms* *expected-idoms*))
 ;; (idoms-table->graphviz *purdom-idoms*)
 
-(assert (idoms-table-equal *purdom-idoms* *expected-idoms*))
+(defvar *iterative-doms* (dominator-iterative *flow-graph*))
+(defvar *iterative-idoms* (doms-table->idoms-table *iterative-doms*))
+(assert (idoms-table-equal *iterative-idoms* *expected-idoms*))
+;; (idoms-table->graphviz *iterative-idoms*)
