@@ -285,13 +285,13 @@ Each node's dominators is stored as hash-set."
           (hash-set-add (gethash node-2 result) node))))
     result))
 
-(defun dominator-iterative (flow-graph)
+(defun dominator-iterative (flow-graph &key verify-flow-graph)
   "Compute the dominators of each node within the FLOW-GRAPH
 using the iterative algorithm.
 The format of the result is the same as `dominator-purdom'."
   ;; Verify the flow-graph, the iterative algorithm doesn't allow the
   ;; entry node has any predecessors.
-  (verify-flow-graph flow-graph nil)
+  (when verify-flow-graph (verify-flow-graph flow-graph nil))
   (do ((doms-table
         (let ((doms-table (make-hash-table))
               (entry (entry flow-graph)))
@@ -316,8 +316,8 @@ The format of the result is the same as `dominator-purdom'."
           (setf (gethash node doms-table) new-doms)
           (setf changed t))))))
 
-(defun dominator-cooper (flow-graph)
-  (verify-flow-graph flow-graph nil)
+(defun dominator-cooper (flow-graph &key verify-flow-graph)
+  (when verify-flow-graph (verify-flow-graph flow-graph nil))
   (do ((idoms-table
         (let ((idoms-table (make-hash-table))
               (entry (entry flow-graph)))
