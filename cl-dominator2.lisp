@@ -450,7 +450,7 @@ and its value will be nil."
 
 (defvar *cooper-idoms* (dominator-cooper *flow-graph*))
 (assert (idoms-table-equal *cooper-idoms* *expected-idoms*))
-(idoms-table->graphviz *cooper-idoms*)
+;; (idoms-table->graphviz *cooper-idoms*)
 
 (defun make-random-flow-graph (expected-num-of-nodes expected-num-of-edges)
   (when (<= expected-num-of-nodes 0)
