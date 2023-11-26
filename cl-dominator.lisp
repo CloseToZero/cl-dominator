@@ -254,7 +254,7 @@
   (let ((change t)
         (idoms (make-hash-table)))
     ;; Indicate that the idom of entry have initialized,
-    ;; laster, we will set the idom of entry to be nil.
+    ;; later, we will set the idom of entry to be nil.
     (setf (gethash (entry flow-graph) idoms) (entry flow-graph))
     (multiple-value-bind (nodes rpo-nums) (nodes-in-reverse-postorder flow-graph)
       (labels ((intersect (node1 node2)
