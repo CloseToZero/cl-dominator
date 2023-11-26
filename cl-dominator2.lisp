@@ -47,6 +47,17 @@
   (incf (num-of-nodes graph))
   graph)
 
+(defun remove-node (graph node)
+  ;; TODO linear search is slow
+  (when (member node (nodes graph))
+    (dolist (predecessor (predecessors node))
+      (setf (successors predecessor) (delete node (successors predecessor))))
+    (dolist (successor (successors node))
+      (setf (predecessors successor) (delete node (predecessors successor))))
+    (setf (nodes graph) (delete node (nodes graph)))
+    (decf (num-of-nodes graph)))
+  graph)
+
 (defun make-graph-node (graph &rest args)
   (let ((node (apply #'make-node args)))
     (add-node graph node)
@@ -388,6 +399,11 @@ and its value will be nil."
                         (return)))
                     idoms-table-1))
          result)))
+
+(defun idoms-table-equal* (&rest idoms-tables)
+  (every (lambda (idoms-table-1 idoms-table-2)
+           (idoms-table-equal idoms-table-1 idoms-table-2))
+         idoms-tables (cdr idoms-tables)))
 
 (defun idoms-table->graph (idoms-table)
   (let ((tree (make-graph))
