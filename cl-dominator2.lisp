@@ -280,7 +280,7 @@ using the iterative algorithm.
 The format of the result is the same as `dominator-purdom'."
   ;; Verify the flow-graph, the iterative algorithm doesn't allow the
   ;; entry node has any predecessors.
-  (verify-flow-graph *flow-graph* nil)
+  (verify-flow-graph flow-graph nil)
   (do ((doms-table
         (let ((doms-table (make-hash-table))
               (entry (entry flow-graph)))
@@ -296,7 +296,7 @@ The format of the result is the same as `dominator-purdom'."
        (changed t))
       ((not changed) doms-table)
     (setf changed nil)
-    (dolist (node (nodes-in-reverse-postorder (entry *flow-graph*)))
+    (dolist (node (nodes-in-reverse-postorder (entry flow-graph)))
       (let ((new-doms (apply #'hash-set-intersection*
                              (mapcar (lambda (node) (gethash node doms-table))
                                      (predecessors node)))))
@@ -306,7 +306,7 @@ The format of the result is the same as `dominator-purdom'."
           (setf changed t))))))
 
 (defun dominator-cooper (flow-graph)
-  (verify-flow-graph *flow-graph* nil)
+  (verify-flow-graph flow-graph nil)
   (do ((idoms-table
         (let ((idoms-table (make-hash-table))
               (entry (entry flow-graph)))
@@ -343,7 +343,7 @@ The format of the result is the same as `dominator-purdom'."
                    (reduce (lambda (acc node) (intersection-by-rpo-nums idoms-table rpo-nums acc node))
                            inited-nodes)))))
       (setf changed nil)
-      (multiple-value-bind (nodes rpo-nums) (nodes-in-reverse-postorder-with-rpo-nums (entry *flow-graph*))
+      (multiple-value-bind (nodes rpo-nums) (nodes-in-reverse-postorder-with-rpo-nums (entry flow-graph))
         (dolist (node nodes)
           (let ((new-idom (apply #'intersection-by-rpo-nums* idoms-table rpo-nums (predecessors node))))
             (unless (or (null new-idom) (eql (gethash node idoms-table) new-idom))
