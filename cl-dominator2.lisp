@@ -233,6 +233,15 @@
       (rec start-node))
     nodes))
 
+(defun nodes-in-reverse-postorder-with-rpo-nums (start-node)
+  (let ((nodes (nodes-in-reverse-postorder start-node))
+        (rpo-nums (make-hash-table))
+        (rpo-num 0))
+    (dolist (node nodes)
+      (setf (gethash node rpo-nums) rpo-num)
+      (incf rpo-num))
+    (values nodes rpo-nums)))
+
 (defun verify-flow-graph (flow-graph &optional (allow-link-to-entry t))
   "Verify whether the FLOW-GRAPH is valid, signals an error if it's invalid.
 A FLOW-GRAPH is valid if and only if the following are true:
@@ -295,6 +304,51 @@ The format of the result is the same as `dominator-purdom'."
         (unless (hash-set-equal new-doms (gethash node doms-table))
           (setf (gethash node doms-table) new-doms)
           (setf changed t))))))
+
+(defun dominator-cooper (flow-graph)
+  (verify-flow-graph *flow-graph* nil)
+  (do ((idoms-table
+        (let ((idoms-table (make-hash-table))
+              (entry (entry flow-graph)))
+          ;; Set the immediate dominator of entry to be itself to
+          ;; simplify the implementation, we will set entry's
+          ;; immediate dominator to nil in the end.
+          (setf (gethash entry idoms-table) entry)
+          idoms-table))
+       (changed t))
+      ((not changed)
+       (setf (gethash (entry flow-graph) idoms-table) nil)
+       idoms-table)
+    (labels ((intersection-by-rpo-nums (idoms-table rpo-nums node-1 node-2)
+               (do* ((head-1 node-1)
+                     (head-2 node-2)
+                     (head-1-rpo-num
+                      (gethash head-1 rpo-nums)
+                      (gethash head-1 rpo-nums))
+                     (head-2-rpo-num
+                      (gethash head-2 rpo-nums)
+                      (gethash head-2 rpo-nums)))
+                    ((= head-1-rpo-num head-2-rpo-num) head-1)
+                 (cond ((> head-1-rpo-num head-2-rpo-num)
+                        (setf head-1 (gethash head-1 idoms-table)))
+                       ((> head-2-rpo-num head-1-rpo-num)
+                        (setf head-2 (gethash head-2 idoms-table))))))
+             (intersection-by-rpo-nums* (idoms-table rpo-nums &rest nodes)
+               (let ((inited-nodes (remove-if-not (lambda (node) (gethash node idoms-table)) nodes)))
+                 ;; Special case: INITED-NODES has only one element,
+                 ;; this means the node has only one processed
+                 ;; predecessor. In this case, `reduce' returns the
+                 ;; processed predecessor, and it is correct.
+                 (when inited-nodes
+                   (reduce (lambda (acc node) (intersection-by-rpo-nums idoms-table rpo-nums acc node))
+                           inited-nodes)))))
+      (setf changed nil)
+      (multiple-value-bind (nodes rpo-nums) (nodes-in-reverse-postorder-with-rpo-nums (entry *flow-graph*))
+        (dolist (node nodes)
+          (let ((new-idom (apply #'intersection-by-rpo-nums* idoms-table rpo-nums (predecessors node))))
+            (unless (or (null new-idom) (eql (gethash node idoms-table) new-idom))
+              (setf (gethash node idoms-table) new-idom)
+              (setf changed t))))))))
 
 (defun doms-table->idoms-table (doms-table)
   "Convert dominators to immediate dominators.
@@ -377,3 +431,7 @@ and its value will be nil."
 (defvar *iterative-idoms* (doms-table->idoms-table *iterative-doms*))
 (assert (idoms-table-equal *iterative-idoms* *expected-idoms*))
 ;; (idoms-table->graphviz *iterative-idoms*)
+
+(defvar *cooper-idoms* (dominator-cooper *flow-graph*))
+(assert (idoms-table-equal *cooper-idoms* *expected-idoms*))
+(idoms-table->graphviz *cooper-idoms*)
