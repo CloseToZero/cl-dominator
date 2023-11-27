@@ -179,11 +179,28 @@
     result))
 
 (defun hash-set-intersection (hash-set-1 hash-set-2)
+  "Returns the intersection of two hash-sets."
   (let ((result (make-hash-set :test (test hash-set-1))))
     (do-hash-set (element hash-set-1)
       (when (hash-set-exists hash-set-2 element)
         (hash-set-add result element)))
     result))
+
+(defun special-hash-set-intersection (hash-set-1 hash-set-2)
+  "Just like `hash-set-intersection', but treat nil as universal set.
+We treat nil as universal set so that some algorithms
+don't need to construct universal set explicitly,
+which is costly for large flow graphs.
+Note that the return value may be nil if the result of intersection is
+the universal set."
+  (cond ((and (null hash-set-1) (null hash-set-2)) nil)
+        ((or (null hash-set-1) (null hash-set-2))
+         (or hash-set-1 hash-set-2))
+        (t (let ((result (make-hash-set :test (test hash-set-1))))
+             (do-hash-set (element hash-set-1)
+               (when (hash-set-exists hash-set-2 element)
+                 (hash-set-add result element)))
+             result))))
 
 (defun hash-set-intersection* (&rest hash-sets)
   (if (null hash-sets)
@@ -192,6 +209,14 @@
                 (hash-set-intersection acc hash-set))
               (rest hash-sets)
               :initial-value (hash-set-copy (first hash-sets)))))
+
+(defun special-hash-set-intersection* (&rest hash-sets)
+  (if (null hash-sets)
+      (make-hash-set)
+      (reduce (lambda (acc hash-set)
+                (special-hash-set-intersection acc hash-set))
+              (rest hash-sets)
+              :initial-value (when (first hash-sets) (hash-set-copy (first hash-sets))))))
 
 (defun hash-set-notany (hash-set predicate &optional ignore)
   (block nil
@@ -294,25 +319,21 @@ The format of the result is the same as `dominator-purdom'."
   (when verify-flow-graph (verify-flow-graph flow-graph nil))
   (do ((doms-table
         (let ((doms-table (make-hash-table))
-              (entry (entry flow-graph)))
-          (dolist (node (nodes flow-graph))
-            (let ((hash-set (make-hash-set)))
-              (cond ((eql node entry)
-                     (hash-set-add hash-set node))
-                    (t
-                     (dolist (node (nodes flow-graph))
-                       (hash-set-add hash-set node))))
-              (setf (gethash node doms-table) hash-set)))
+              (entry (entry flow-graph))
+              (hash-set (make-hash-set)))
+            (hash-set-add hash-set entry)
+            (setf (gethash entry doms-table) hash-set)
           doms-table))
        (changed t))
       ((not changed) doms-table)
     (setf changed nil)
     (dolist (node (nodes-in-reverse-postorder (entry flow-graph)))
-      (let ((new-doms (apply #'hash-set-intersection*
+      (let ((new-doms (apply #'special-hash-set-intersection*
                              (mapcar (lambda (node) (gethash node doms-table))
                                      (predecessors node)))))
         (hash-set-add new-doms node)
-        (unless (hash-set-equal new-doms (gethash node doms-table))
+        (when (let ((old-doms (gethash node doms-table)))
+                (or (null old-doms) (not (hash-set-equal new-doms old-doms))))
           (setf (gethash node doms-table) new-doms)
           (setf changed t))))))
 
