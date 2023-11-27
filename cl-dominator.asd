@@ -4,4 +4,4 @@
   :author "Zhexuan Chen <2915234902@qq.com>"
   :licence "MIT"
   :components ((:file "cl-dominator")
-               (:file "cl-dominator2")))
+               (:file "cl-dominator-old")))
