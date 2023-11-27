@@ -145,7 +145,7 @@
   (gethash element (table hash-set)))
 
 (defmacro do-hash-set ((var hash-set-form) &body body)
-  (let ((body-fn-var (gensym "body-fn-var"))
+  (let ((body-fn-var (gensym "body-fn"))
         (element-var (gensym "element"))
         (value-var (gensym "value")))
     `(let ((,body-fn-var (lambda (,var) ,@body)))
