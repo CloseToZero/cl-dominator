@@ -424,25 +424,3 @@
 ;;          (dominator-cooper *random-flow-graph*)
 ;;          (dominator-tarjan-simple *random-flow-graph*)
 ;;          (dominator-tarjan-sophisticated *random-flow-graph*)))
-
-;; (progn
-;;   (let ((count 10))
-;;     (format t "~&purdom:~%")
-;;     (trivial-benchmark:with-timing (count)
-;;       (dominator-purdom *random-flow-graph*))
-
-;;     (format t "~%~%iterative:~%")
-;;     (trivial-benchmark:with-timing (count)
-;;       (dominator-iterative *random-flow-graph*))
-
-;;     (format t "~%~%cooper:~%")
-;;     (trivial-benchmark:with-timing (count)
-;;       (dominator-cooper *random-flow-graph*))
-
-;;     (format t "~%~%tarjan-simple:~%")
-;;     (trivial-benchmark:with-timing (count)
-;;       (dominator-tarjan-simple *random-flow-graph*))
-
-;;     (format t "~%~%tarjan-sophisticated:~%")
-;;     (trivial-benchmark:with-timing (count)
-;;       (dominator-tarjan-sophisticated *random-flow-graph*))))
