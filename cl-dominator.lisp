@@ -297,7 +297,7 @@ A FLOW-GRAPH is valid if and only if the following are true:
 using the Purdom algorithm.
 The result is returned as a hash-table, with nodes of FLOW-GRAPH
 as key and corresponding dominators as values.
-Each node's dominators is stored as hash-set."
+Each node's dominators is stored as a hash-set."
   (let ((result (make-hash-table)))
     (dolist (node (nodes flow-graph))
       (setf (gethash node result) (make-hash-set)))
@@ -338,6 +338,12 @@ The format of the result is the same as `dominator-purdom'."
           (setf changed t))))))
 
 (defun dominator-cooper (flow-graph &key verify-flow-graph)
+  "Compute the dominators of each node within the FLOW-GRAPH
+using the Cooper algorithm.
+The result is returned as a hash-table, with nodes of FLOW-GRAPH
+as key and corresponding immediate dominator as values.
+Note that the entry node will always exist as a key,
+and its value will be nil."
   (when verify-flow-graph (verify-flow-graph flow-graph nil))
   (do ((idoms-table
         (let ((idoms-table (make-hash-table))
