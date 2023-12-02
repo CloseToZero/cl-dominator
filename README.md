@@ -16,7 +16,7 @@ I also wrote a blog about dominator (in Chinese): [Dominator 讲解及其相关�
 
 **TODO**: Give the details of each reference.
 
-- [Building an optimizing compiler 1st](https://dl.acm.org/doi/abs/10.5555/288765)
+- [Building an optimizing compiler 1st](https://www.amazon.sg/Building-Optimizing-Compiler-Bob-Morgan/dp/155558179X)
 - [Compilers: Principles, Techniques, and Tools 2nd](https://dl.acm.org/doi/10.5555/1177220)
 - [Engineering a Compiler 3rd](https://www.amazon.sg/Engineering-Compiler-Keith-D-Cooper/dp/0128154128/ref=sr_1_2?keywords=Engineering+a+Compiler&qid=1701078872&sr=8-2)
 - [A Simple, Fast Dominance Algorithm](https://www.semanticscholar.org/paper/A-Simple%2C-Fast-Dominance-Algorithm-Cooper-Harvey/50a116a8e82ec9d9a936018518554fa94a6bef9d)
