@@ -6,9 +6,11 @@ Include the following commonly used dominator algorithms:
 2. Iterative algorithm
 3. Cooper algorithm
 4. Tarjan algorithm (both simple and sophisticated, only in `cl-dominator-old.lisp` right now)
-5. TODO Semi-NCA algorithm
+5. **TODO** Semi-NCA algorithm
 
 **Warning**: Just for learning, not intended as a library. I won't maintain it.
+
+I also wrote a blog about dominator (in Chinese): [Dominator 讲解及其相关性质的证明](https://osfva.com/20231101115121-dominator_%E8%AE%B2%E8%A7%A3%E5%8F%8A%E5%85%B6%E7%9B%B8%E5%85%B3%E6%80%A7%E8%B4%A8%E7%9A%84%E8%AF%81%E6%98%8E/)
 
 # References
 
