@@ -525,28 +525,28 @@ and its value will be nil."
                               (gethash (gethash (gethash current-subtree-root next-subtree-root-table)
                                                 node-with-min-semi-dom-table)
                                        semi-nums-table 0))
-                     for next-sub-tree-root = (gethash current-subtree-root
+                     for next-subtree-root = (gethash current-subtree-root
                                                        next-subtree-root-table)
-                     for next-sub-tree-root-size = (gethash next-sub-tree-root
+                     for next-subtree-root-size = (gethash next-subtree-root
                                                             size-table 0)
                      do (cond ((>= (- (gethash current-subtree-root size-table)
-                                      next-sub-tree-root-size)
-                                   (- next-sub-tree-root-size
-                                      (gethash (gethash next-sub-tree-root
+                                      next-subtree-root-size)
+                                   (- next-subtree-root-size
+                                      (gethash (gethash next-subtree-root
                                                         next-subtree-root-table)
                                                size-table 0)))
-                               (setf (gethash next-sub-tree-root vtree-parent-table)
+                               (setf (gethash next-subtree-root vtree-parent-table)
                                      current-subtree-root)
                                (setf (gethash current-subtree-root
                                               next-subtree-root-table)
-                                     (gethash next-sub-tree-root
+                                     (gethash next-subtree-root
                                               next-subtree-root-table)))
                               (t
-                               (setf (gethash next-sub-tree-root
+                               (setf (gethash next-subtree-root
                                               size-table)
                                      (gethash current-subtree-root size-table))
-                               (setf (gethash current-subtree-root vtree-parent-table) next-sub-tree-root
-                                     current-subtree-root next-sub-tree-root))))
+                               (setf (gethash current-subtree-root vtree-parent-table) next-subtree-root
+                                     current-subtree-root next-subtree-root))))
                (setf (gethash current-subtree-root node-with-min-semi-dom-table)
                      (gethash node-2 node-with-min-semi-dom-table))
                (setf (gethash node-1 size-table)
