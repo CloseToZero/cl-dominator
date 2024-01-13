@@ -136,10 +136,12 @@
   (hash-table-count (table hash-set)))
 
 (defun hash-set-add (hash-set element)
-  (setf (gethash element (table hash-set)) t))
+  (setf (gethash element (table hash-set)) t)
+  hash-set)
 
 (defun hash-set-remove (hash-set element)
-  (remhash element (table hash-set)))
+  (remhash element (table hash-set))
+  hash-set)
 
 (defun hash-set-exists (hash-set element)
   (gethash element (table hash-set)))
