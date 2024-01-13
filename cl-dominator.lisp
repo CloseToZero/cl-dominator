@@ -658,11 +658,11 @@ and its value will be nil."
 
 (defvar *tarjan-simple-idoms* (dominator-tarjan-simple *flow-graph*))
 (assert (idoms-table-equal *tarjan-simple-idoms* *expected-idoms*))
-(idoms-table->graphviz *tarjan-simple-idoms*)
+;; (idoms-table->graphviz *tarjan-simple-idoms*)
 
 (defvar *tarjan-sophisticated-idoms* (dominator-tarjan-sophisticated *flow-graph*))
 (assert (idoms-table-equal *tarjan-sophisticated-idoms* *expected-idoms*))
-(idoms-table->graphviz *tarjan-sophisticated-idoms*)
+;; (idoms-table->graphviz *tarjan-sophisticated-idoms*)
 
 (defun make-random-flow-graph (expected-num-of-nodes expected-num-of-edges)
   (when (<= expected-num-of-nodes 0)
