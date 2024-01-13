@@ -245,12 +245,12 @@ the universal set."
                        (lambda (element)
                          (hash-set-exists hash-set-2 element)))))
 
-(defun depth-first-search-default-fn (node)
-  (declare (ignore node))
+(defun depth-first-search-default-fn (node tree-parent)
+  (declare (ignore node tree-parent))
   nil)
 
-(defun depth-first-search-default-skip-fn (node)
-  (declare (ignore node))
+(defun depth-first-search-default-skip-fn (node tree-parent)
+  (declare (ignore node tree-parent))
   nil)
 
 (defun depth-first-search (start-node
@@ -259,16 +259,16 @@ the universal set."
                              (postorder-fn #'depth-first-search-default-fn)
                              (skip-fn #'depth-first-search-default-skip-fn))
   (let ((visited (make-hash-set)))
-    (labels ((rec (node)
+    (labels ((rec (node tree-parent)
                (hash-set-add visited node)
-               (funcall preorder-fn node)
+               (funcall preorder-fn node tree-parent)
                (dolist (succ (successors node))
                  (unless (or (hash-set-exists visited succ)
-                             (funcall skip-fn succ))
-                   (rec succ)))
-               (funcall postorder-fn node)))
-      (unless (funcall skip-fn start-node)
-        (rec start-node)))
+                             (funcall skip-fn succ node))
+                   (rec succ node)))
+               (funcall postorder-fn node tree-parent)))
+      (unless (funcall skip-fn start-node nil)
+        (rec start-node nil)))
     visited))
 
 (defun reachable (start-node &optional skip-node)
@@ -276,25 +276,29 @@ the universal set."
       (hash-set-add (make-hash-set) start-node)
       (depth-first-search
        start-node
-       :skip-fn (lambda (node)
+       :skip-fn (lambda (node tree-parent)
+                  (declare (ignore tree-parent))
                   (eql node skip-node)))))
 
 (defun nodes-in-reverse-postorder (start-node)
   (let ((nodes nil))
     (depth-first-search
      start-node
-     :postorder-fn (lambda (node)
+     :postorder-fn (lambda (node tree-parent)
+                     (declare (ignore tree-parent))
                      (push node nodes)))
     nodes))
 
+(defun list-with-index-table (list)
+  (let ((indexes (make-hash-table))
+        (index 0))
+    (dolist (e list)
+      (setf (gethash e indexes) index)
+      (incf index))
+    (values list indexes)))
+
 (defun nodes-in-reverse-postorder-with-rpo-nums (start-node)
-  (let ((nodes (nodes-in-reverse-postorder start-node))
-        (rpo-nums (make-hash-table))
-        (rpo-num 0))
-    (dolist (node nodes)
-      (setf (gethash node rpo-nums) rpo-num)
-      (incf rpo-num))
-    (values nodes rpo-nums)))
+  (list-with-index-table (nodes-in-reverse-postorder start-node)))
 
 (defun verify-flow-graph (flow-graph &optional (allow-link-to-entry t))
   "Verify whether the FLOW-GRAPH is valid, signals an error if it's invalid.
@@ -406,6 +410,92 @@ and its value will be nil."
               (setf (gethash node idoms-table) new-idom)
               (setf changed t))))))))
 
+(defun dominator-tarjan-simple (flow-graph)
+  (labels ((compress-path (node semi-nums-table vtree-parent-table node-with-min-semi-dom-table)
+             ;; This function assumes that vtree-parent is non-nil.
+             (let ((vtree-parent (gethash node vtree-parent-table)))
+               (when (gethash vtree-parent vtree-parent-table)
+                 (compress-path vtree-parent semi-nums-table vtree-parent-table node-with-min-semi-dom-table)
+                 (when (< (gethash (gethash vtree-parent node-with-min-semi-dom-table) semi-nums-table)
+                          (gethash (gethash node node-with-min-semi-dom-table) semi-nums-table))
+                   (setf (gethash node node-with-min-semi-dom-table)
+                         (gethash vtree-parent node-with-min-semi-dom-table)))
+                 (setf (gethash node vtree-parent-table)
+                       (gethash vtree-parent vtree-parent-table)))))
+           (node-with-min-semi-dom-on-path (node semi-nums-table vtree-parent-table node-with-min-semi-dom-table)
+             (cond ((null (gethash node vtree-parent-table))
+                    node)
+                   (t
+                    (compress-path node semi-nums-table vtree-parent-table node-with-min-semi-dom-table)
+                    (gethash node node-with-min-semi-dom-table))))
+           (vtree-link-nodes (node-1 node-2 vtree-parent-table)
+             (setf (gethash node-2 vtree-parent-table) node-1)))
+    (let ((entry (entry flow-graph))
+          (node-with-min-semi-dom-table (make-hash-table))
+          (vtree-parent-table (make-hash-table))
+          (semi-dom-buckets (make-hash-table))
+          (nodes-vector (make-sequence 'vector (num-of-nodes flow-graph)))
+          ;; NOTE: Before the semi-dominator of a node n is computed,
+          ;; semi-nums-table[n] is n's preorder number, after n's semi-dominator have computed,
+          ;; semi-nums-table[n] is the preorder number of n's semi-dominator.
+          (semi-nums-table (make-hash-table))
+          (tree-parent-table (make-hash-table))
+          (idoms-table (make-hash-table)))
+      (let ((next-index 0))
+        (depth-first-search
+         entry
+         :preorder-fn (lambda (node tree-parent)
+                        (setf (elt nodes-vector next-index) node)
+                        (setf (gethash node semi-nums-table) next-index)
+                        (setf (gethash node node-with-min-semi-dom-table) node)
+                        (setf (gethash node tree-parent-table) tree-parent)
+                        (incf next-index))))
+      ;; Skip the node with preorder number 0 (entry)
+      (loop for i from (1- (length nodes-vector)) above 0
+            for node = (elt nodes-vector i)
+            do
+               (dolist (pred (predecessors node))
+                 (let ((pred-node-with-min-semi-dom-on-path
+                         (node-with-min-semi-dom-on-path
+                          pred semi-nums-table vtree-parent-table node-with-min-semi-dom-table)))
+                   (when (< (gethash pred-node-with-min-semi-dom-on-path semi-nums-table)
+                            (gethash node semi-nums-table))
+                     (setf (gethash node semi-nums-table)
+                           (gethash pred-node-with-min-semi-dom-on-path semi-nums-table)))))
+               ;; At this point, we have computed the semi-dominator of node
+               ;; and now semi-nums-table[node] is the preorder number of node's semi-dominator.
+               (push node (gethash (elt nodes-vector (gethash node semi-nums-table)) semi-dom-buckets))
+               (let ((parent (gethash node tree-parent-table)))
+                 (vtree-link-nodes parent node vtree-parent-table)
+                 (dolist (node (gethash parent semi-dom-buckets))
+                   (let ((node-with-min-semi-dom-on-path
+                           (node-with-min-semi-dom-on-path
+                            node semi-nums-table vtree-parent-table node-with-min-semi-dom-table)))
+                     (setf (gethash node idoms-table)
+                           (cond ((< (gethash node-with-min-semi-dom-on-path semi-nums-table )
+                                     (gethash node semi-nums-table))
+                                  ;; In this case, the immediate dominator of node
+                                  ;; is the same as the immediate dominator of node-with-min-semi-dom-on-path,
+                                  ;; so we link node to node-with-min-semi-dom-on-path in idoms-table
+                                  ;; and resolve the link in the end.
+                                  node-with-min-semi-dom-on-path)
+                                 (t
+                                  ;; In this case, the immediate dominator of node is just its
+                                  ;; semi-dominator which is parent (the parent variable, not node's parent).
+                                  parent))))))
+               ;; Clear the bucket so it won't affect the calcuation of other subtree branchs
+               ;; with the same root node as (gethash node tree-parent-table).
+               (setf (gethash (gethash node tree-parent-table) semi-dom-buckets) nil))
+      ;; Now, we resolve the links in idoms-table, should do it in preoreder,
+      ;; otherwise, the result will be wrong.
+      (loop for i from 1 below (length nodes-vector)
+            for node = (elt nodes-vector i)
+            do (unless (eql (gethash node idoms-table)
+                            (elt nodes-vector (gethash node semi-nums-table)))
+                 (setf (gethash node idoms-table) (gethash (gethash node idoms-table) idoms-table))))
+      (setf (gethash entry idoms-table) nil)
+      idoms-table)))
+
 (defun doms-table->idoms-table (doms-table)
   "Convert dominators to immediate dominators.
 DOMS-TABLE is a hash table with nodes as keys and
@@ -497,6 +587,10 @@ and its value will be nil."
 (assert (idoms-table-equal *cooper-idoms* *expected-idoms*))
 ;; (idoms-table->graphviz *cooper-idoms*)
 
+(defvar *tarjan-simple-idoms* (dominator-tarjan-simple *flow-graph*))
+(assert (idoms-table-equal *tarjan-simple-idoms* *expected-idoms*))
+(idoms-table->graphviz *tarjan-simple-idoms*)
+
 (defun make-random-flow-graph (expected-num-of-nodes expected-num-of-edges)
   (when (<= expected-num-of-nodes 0)
     (error "expected-num-of-nodes should >= 1."))
@@ -521,4 +615,5 @@ and its value will be nil."
 (defvar *random-flow-graph* (let ((count 1000)) (make-random-flow-graph count (* 3 count))))
 (assert (idoms-table-equal* (doms-table->idoms-table (dominator-purdom *random-flow-graph*))
                             (doms-table->idoms-table (dominator-iterative *random-flow-graph*))
-                            (dominator-cooper *random-flow-graph*)))
+                            (dominator-cooper *random-flow-graph*)
+                            (dominator-tarjan-simple *random-flow-graph*)))
