@@ -245,30 +245,46 @@ the universal set."
                        (lambda (element)
                          (hash-set-exists hash-set-2 element)))))
 
-(defun reachable (node &optional ignore-node)
+(defun depth-first-search-default-fn (node)
+  (declare (ignore node))
+  nil)
+
+(defun depth-first-search-default-skip-fn (node)
+  (declare (ignore node))
+  nil)
+
+(defun depth-first-search (start-node
+                           &key
+                             (preorder-fn #'depth-first-search-default-fn)
+                             (postorder-fn #'depth-first-search-default-fn)
+                             (skip-fn #'depth-first-search-default-skip-fn))
   (let ((visited (make-hash-set)))
     (labels ((rec (node)
                (hash-set-add visited node)
+               (funcall preorder-fn node)
                (dolist (succ (successors node))
                  (unless (or (hash-set-exists visited succ)
-                             (eql succ ignore-node))
-                   (rec succ)))))
-      (if (eql node ignore-node)
-          (hash-set-add visited node)
-          (rec node)))
+                             (funcall skip-fn succ))
+                   (rec succ)))
+               (funcall postorder-fn node)))
+      (unless (funcall skip-fn start-node)
+        (rec start-node)))
     visited))
 
+(defun reachable (start-node &optional skip-node)
+  (if (eql start-node skip-node)
+      (hash-set-add (make-hash-set) start-node)
+      (depth-first-search
+       start-node
+       :skip-fn (lambda (node)
+                  (eql node skip-node)))))
+
 (defun nodes-in-reverse-postorder (start-node)
-  ;; TODO build a fine abstraction to remove duplicates.
-  (let ((nodes nil)
-        (visited (make-hash-set)))
-    (labels ((rec (node)
-               (hash-set-add visited node)
-               (dolist (succ (successors node))
-                 (unless (hash-set-exists visited succ)
-                   (rec succ)))
-               (push node nodes)))
-      (rec start-node))
+  (let ((nodes nil))
+    (depth-first-search
+     start-node
+     :postorder-fn (lambda (node)
+                     (push node nodes)))
     nodes))
 
 (defun nodes-in-reverse-postorder-with-rpo-nums (start-node)
