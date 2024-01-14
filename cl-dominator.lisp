@@ -492,6 +492,12 @@ and its value will be nil."
             (gethash vtree-parent vtree-parent-table)))))
 
 (defun dominator-tarjan-simple (flow-graph)
+  "Compute the dominators of each node within the FLOW-GRAPH
+using the Tarjan algorithm (simple version).
+The result is returned as a hash-table, with nodes of FLOW-GRAPH
+as key and corresponding immediate dominator as values.
+Note that the entry node will always exist as a key,
+and its value will be nil."
   (flet ((node-with-min-semi-dom-on-path (node semi-nums-table vtree-parent-table node-with-min-semi-dom-table)
            (cond ((null (gethash node vtree-parent-table))
                   node)
@@ -505,6 +511,12 @@ and its value will be nil."
     (dominator-tarjan-core flow-graph #'vtree-link-nodes #'node-with-min-semi-dom-on-path)))
 
 (defun dominator-tarjan-sophisticated (flow-graph)
+  "Compute the dominators of each node within the FLOW-GRAPH
+using the Tarjan algorithm (sophisticated version).
+The result is returned as a hash-table, with nodes of FLOW-GRAPH
+as key and corresponding immediate dominator as values.
+Note that the entry node will always exist as a key,
+and its value will be nil."
   (let ((size-table (make-hash-table))
         (next-subtree-root-table (make-hash-table)))
     (flet ((node-with-min-semi-dom-on-path
