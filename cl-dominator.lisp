@@ -469,7 +469,7 @@ and its value will be nil."
              ;; with the same root node as (gethash node tree-parent-table).
              (setf (gethash (gethash node tree-parent-table) semi-dom-buckets) nil))
     ;; Now, we resolve the links in idoms-table, should do it in preoreder,
-    ;; otherwise, the result will be wrong.
+    ;; otherwise, we can't resolve these links by just one step.
     (loop for i from 1 below (length nodes-vector)
           for node = (elt nodes-vector i)
           do (unless (eql (gethash node idoms-table)
