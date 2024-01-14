@@ -465,8 +465,9 @@ and its value will be nil."
                                 ;; In this case, the immediate dominator of node is just its
                                 ;; semi-dominator which is parent (the parent variable, not node's parent).
                                 parent))))))
-             ;; Clear the bucket so it won't affect the calcuation of other subtree branchs
-             ;; with the same root node as (gethash node tree-parent-table).
+             ;; Clear the bucket so it won't affect the calcuation of
+             ;; other subtree branchs with the same root node as
+             ;; (gethash node tree-parent-table).
              (setf (gethash (gethash node tree-parent-table) semi-dom-buckets) nil))
     ;; Now, we resolve the links in idoms-table, should do it in preoreder,
     ;; otherwise, we can't resolve these links by just one step.
