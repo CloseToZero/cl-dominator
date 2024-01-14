@@ -93,7 +93,7 @@
       (format stream "digraph G {~%")
       (dolist (node (nodes graph))
         (unless (gethash node visited)
-         (print-node node)))
+          (print-node node)))
       (format stream "}~%"))))
 
 (defvar *node-0* (make-node :name 'node-0))
@@ -343,8 +343,8 @@ The format of the result is the same as `dominator-purdom'."
         (let ((doms-table (make-hash-table))
               (entry (entry flow-graph))
               (hash-set (make-hash-set)))
-            (hash-set-add hash-set entry)
-            (setf (gethash entry doms-table) hash-set)
+          (hash-set-add hash-set entry)
+          (setf (gethash entry doms-table) hash-set)
           doms-table))
        (changed t))
       ((not changed) doms-table)
@@ -454,7 +454,7 @@ and its value will be nil."
                          (funcall node-with-min-semi-dom-on-path-fn
                                   node semi-nums-table vtree-parent-table node-with-min-semi-dom-table)))
                    (setf (gethash node idoms-table)
-                         (cond ((< (gethash node-with-min-semi-dom-on-path semi-nums-table )
+                         (cond ((< (gethash node-with-min-semi-dom-on-path semi-nums-table)
                                    (gethash node semi-nums-table))
                                 ;; In this case, the immediate dominator of node
                                 ;; is the same as the immediate dominator of node-with-min-semi-dom-on-path,
@@ -526,9 +526,9 @@ and its value will be nil."
                                                 node-with-min-semi-dom-table)
                                        semi-nums-table 0))
                      for next-subtree-root = (gethash current-subtree-root
-                                                       next-subtree-root-table)
+                                                      next-subtree-root-table)
                      for next-subtree-root-size = (gethash next-subtree-root
-                                                            size-table 0)
+                                                           size-table 0)
                      do (cond ((>= (- (gethash current-subtree-root size-table)
                                       next-subtree-root-size)
                                    (- next-subtree-root-size
