@@ -33,7 +33,8 @@
     :type list)
    (num-of-nodes
     :accessor num-of-nodes
-    :initform 0)))
+    :initform 0
+    :type integer)))
 
 (defmethod print-object ((node node) stream)
   (print-unreadable-object (node stream :type t :identity t)
