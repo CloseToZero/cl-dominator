@@ -86,11 +86,15 @@
   (let ((visited (make-hash-table)))
     (labels ((print-node (node)
                (setf (gethash node visited) t)
-               (dolist (succ (successors node))
-                 (format stream "  \"~A\" -> \"~A\"~%"
-                         (name node) (name succ))
-                 (unless (gethash succ visited)
-                   (print-node succ)))))
+               (cond ((and (null (successors node))
+                           (null (predecessors node)))
+                      (format stream "  \"~A\"~%" (name node)))
+                     (t
+                      (dolist (succ (successors node))
+                        (format stream "  \"~A\" -> \"~A\"~%"
+                                (name node) (name succ))
+                        (unless (gethash succ visited)
+                          (print-node succ)))))))
       (format stream "digraph G {~%")
       (dolist (node (nodes graph))
         (unless (gethash node visited)
