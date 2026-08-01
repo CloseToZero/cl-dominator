@@ -336,9 +336,7 @@ its dominators."
 (defun dominator-iterative (flow-graph &key verify-flow-graph)
   "Compute the dominators of each node in FLOW-GRAPH iteratively.
 The result has the same format as that of DOMINATOR-PURDOM."
-  ;; Verify the flow graph when requested. The iterative algorithm requires
-  ;; the entry node to have no predecessors.
-  (when verify-flow-graph (verify-flow-graph flow-graph nil))
+  (when verify-flow-graph (verify-flow-graph flow-graph))
   (do ((doms-table
         (let ((doms-table (make-hash-table))
               (entry (entry flow-graph))
@@ -350,14 +348,15 @@ The result has the same format as that of DOMINATOR-PURDOM."
       ((not changed) doms-table)
     (setf changed nil)
     (dolist (node (nodes-in-reverse-postorder (entry flow-graph)))
-      (let ((new-doms (apply #'special-hash-set-intersection*
-                             (mapcar (lambda (node) (gethash node doms-table))
-                                     (predecessors node)))))
-        (hash-set-add new-doms node)
-        (when (let ((old-doms (gethash node doms-table)))
-                (or (null old-doms) (not (hash-set-equal new-doms old-doms))))
-          (setf (gethash node doms-table) new-doms)
-          (setf changed t))))))
+      (unless (eql node (entry flow-graph))
+        (let ((new-doms (apply #'special-hash-set-intersection*
+                               (mapcar (lambda (node) (gethash node doms-table))
+                                       (predecessors node)))))
+          (hash-set-add new-doms node)
+          (when (let ((old-doms (gethash node doms-table)))
+                  (or (null old-doms) (not (hash-set-equal new-doms old-doms))))
+            (setf (gethash node doms-table) new-doms)
+            (setf changed t)))))))
 
 (defun dominator-cooper (flow-graph &key verify-flow-graph)
   "Compute the dominators of each node in FLOW-GRAPH using Cooper's algorithm.
