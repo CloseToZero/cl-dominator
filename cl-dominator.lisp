@@ -599,16 +599,16 @@ The entry node is always present as a key and maps to NIL."
     result))
 
 (defun idoms-table-equal (idoms-table-1 idoms-table-2)
-  (and (eql (hash-table-size idoms-table-1)
-            (hash-table-size idoms-table-2))
-       (let ((result t))
-         (block nil
-           (maphash (lambda (node idom)
-                      (unless (eql (gethash node idoms-table-2) idom)
-                        (setf result nil)
-                        (return)))
-                    idoms-table-1))
-         result)))
+  (and (eql (hash-table-count idoms-table-1)
+            (hash-table-count idoms-table-2))
+       (block tables-match
+         (maphash (lambda (node idom)
+                    (multiple-value-bind (other-idom presentp)
+                        (gethash node idoms-table-2)
+                      (unless (and presentp (eql other-idom idom))
+                        (return-from tables-match nil))))
+                  idoms-table-1)
+         t)))
 
 (defun idoms-table-equal* (&rest idoms-tables)
   (every (lambda (idoms-table-1 idoms-table-2)
