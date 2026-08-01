@@ -197,10 +197,10 @@
   "Behave like HASH-SET-INTERSECTION, but treat NIL as the universal set.
 This convention lets callers avoid explicitly constructing the universal set,
 which is costly for large flow graphs. The return value is NIL when the
-intersection is the universal set."
+  intersection is the universal set."
   (cond ((and (null hash-set-1) (null hash-set-2)) nil)
-        ((or (null hash-set-1) (null hash-set-2))
-         (or hash-set-1 hash-set-2))
+        ((null hash-set-1) (hash-set-copy hash-set-2))
+        ((null hash-set-2) (hash-set-copy hash-set-1))
         (t (let ((result (make-hash-set :test (test hash-set-1))))
              (do-hash-set (element hash-set-1)
                (when (hash-set-exists hash-set-2 element)
