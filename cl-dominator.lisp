@@ -405,6 +405,12 @@ dominator. The entry node is always present as a key and maps to NIL."
               (setf (gethash node idoms-table) new-idom)
               (setf changed t))))))))
 
+(declaim
+ (ftype (function (flow-graph function function) hash-table)
+        dominator-tarjan-core)
+ (ftype (function (node hash-table hash-table hash-table) t)
+        dominator-tarjan-compress-path))
+
 (defun dominator-tarjan-simple (flow-graph)
   "Compute dominators using the simple version of the Lengauer-Tarjan algorithm.
 Return a hash table that maps each node in FLOW-GRAPH to its immediate
