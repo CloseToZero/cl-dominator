@@ -173,7 +173,7 @@
   (format stream "}"))
 
 (defun hash-set-copy (hash-set)
-  (let ((result (make-hash-set)))
+  (let ((result (make-hash-set :test (test hash-set))))
     (do-hash-set (element hash-set)
       (hash-set-add result element))
     result))
