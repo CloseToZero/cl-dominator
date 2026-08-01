@@ -49,7 +49,7 @@
   graph)
 
 (defun remove-node (graph node)
-  ;; TODO linear search is slow
+  ;; TODO: A linear search is slow.
   (when (member node (nodes graph))
     (dolist (predecessor (predecessors node))
       (setf (successors predecessor) (delete node (successors predecessor))))
@@ -72,7 +72,7 @@
 (defclass flow-graph (graph)
   ((entry
     :accessor entry
-    :initform (error "Must supply a entry node")
+    :initform (error "An entry node is required.")
     :initarg :entry
     :type node)))
 
@@ -125,11 +125,11 @@
 (defclass hash-set ()
   ((table
     :accessor table
-    :initform (error "Must supply a table")
+    :initform (error "A hash table is required.")
     :initarg :table)
    (test
     :accessor test
-    :initform (error "Must supply the test function of the table")
+    :initform (error "The hash table's test function is required.")
     :initarg :test)))
 
 (defun make-hash-set (&key (test #'equal))
@@ -161,8 +161,8 @@
                   (funcall ,body-fn-var ,element-var))
                 (table ,hash-set-form)))))
 
-;; It seems not a good idea to specialize on `print-object',
-;; the number of hash-set elements may be large.
+;; Specializing PRINT-OBJECT for HASH-SET may be unwise because a set can
+;; contain many elements.
 (defun print-hash-set (hash-set &optional (stream t))
   (format stream "{")
   (let ((first t))
@@ -186,7 +186,7 @@
     result))
 
 (defun hash-set-intersection (hash-set-1 hash-set-2)
-  "Returns the intersection of two hash-sets."
+  "Return the intersection of two hash sets."
   (let ((result (make-hash-set :test (test hash-set-1))))
     (do-hash-set (element hash-set-1)
       (when (hash-set-exists hash-set-2 element)
@@ -194,12 +194,10 @@
     result))
 
 (defun special-hash-set-intersection (hash-set-1 hash-set-2)
-  "Just like `hash-set-intersection', but treat nil as universal set.
-We treat nil as universal set so that some algorithms
-don't need to construct universal set explicitly,
-which is costly for large flow graphs.
-Note that the return value may be nil if the result of intersection is
-the universal set."
+  "Behave like HASH-SET-INTERSECTION, but treat NIL as the universal set.
+This convention lets callers avoid explicitly constructing the universal set,
+which is costly for large flow graphs. The return value is NIL when the
+intersection is the universal set."
   (cond ((and (null hash-set-1) (null hash-set-2)) nil)
         ((or (null hash-set-1) (null hash-set-2))
          (or hash-set-1 hash-set-2))
@@ -306,10 +304,10 @@ the universal set."
   (list-with-index-table (nodes-in-reverse-postorder start-node)))
 
 (defun verify-flow-graph (flow-graph &optional (allow-link-to-entry t))
-  "Verify whether the FLOW-GRAPH is valid, signals an error if it's invalid.
-A FLOW-GRAPH is valid if and only if the following conditions are true:
-1. Every nodes of FLOW-GRAPH is reachabled from the entry node.
-2. If ALLOW-LINK-TO-ENTRY is nil, there are no nodes link to the entry node."
+  "Verify that FLOW-GRAPH is valid, signaling an error if it is not.
+A flow graph is valid if and only if both of the following conditions hold:
+1. Every node in FLOW-GRAPH is reachable from the entry node.
+2. If ALLOW-LINK-TO-ENTRY is NIL, no node links to the entry node."
   (unless allow-link-to-entry
     (assert (null (predecessors (entry flow-graph)))))
   (let ((reachable (reachable (entry flow-graph))))
@@ -320,11 +318,9 @@ A FLOW-GRAPH is valid if and only if the following conditions are true:
 (verify-flow-graph *flow-graph* nil)
 
 (defun dominator-purdom (flow-graph)
-  "Compute the dominators of each node within the FLOW-GRAPH
-using the Purdom algorithm.
-The result is returned as a hash-table, with nodes of FLOW-GRAPH
-as key and corresponding dominators as values.
-Each node's dominators is stored as a hash-set."
+  "Compute the dominators of each node in FLOW-GRAPH using Purdom's algorithm.
+Return a hash table that maps each node in FLOW-GRAPH to a hash set containing
+its dominators."
   (let ((result (make-hash-table)))
     (dolist (node (nodes flow-graph))
       (setf (gethash node result) (make-hash-set)))
@@ -338,11 +334,10 @@ Each node's dominators is stored as a hash-set."
     result))
 
 (defun dominator-iterative (flow-graph &key verify-flow-graph)
-  "Compute the dominators of each node within the FLOW-GRAPH
-using the iterative algorithm.
-The format of the result is the same as `dominator-purdom'."
-  ;; Verify the flow-graph, the iterative algorithm doesn't allow the
-  ;; entry node has any predecessors.
+  "Compute the dominators of each node in FLOW-GRAPH iteratively.
+The result has the same format as that of DOMINATOR-PURDOM."
+  ;; Verify the flow graph when requested. The iterative algorithm requires
+  ;; the entry node to have no predecessors.
   (when verify-flow-graph (verify-flow-graph flow-graph nil))
   (do ((doms-table
         (let ((doms-table (make-hash-table))
@@ -365,19 +360,15 @@ The format of the result is the same as `dominator-purdom'."
           (setf changed t))))))
 
 (defun dominator-cooper (flow-graph &key verify-flow-graph)
-  "Compute the dominators of each node within the FLOW-GRAPH
-using the Cooper algorithm.
-The result is returned as a hash-table, with nodes of FLOW-GRAPH
-as key and corresponding immediate dominator as values.
-Note that the entry node will always exist as a key,
-and its value will be nil."
+  "Compute the dominators of each node in FLOW-GRAPH using Cooper's algorithm.
+Return a hash table that maps each node in FLOW-GRAPH to its immediate
+dominator. The entry node is always present as a key and maps to NIL."
   (when verify-flow-graph (verify-flow-graph flow-graph nil))
   (do ((idoms-table
         (let ((idoms-table (make-hash-table))
               (entry (entry flow-graph)))
-          ;; Set the immediate dominator of entry to be itself to
-          ;; simplify the implementation, we will set entry's
-          ;; immediate dominator to nil in the end.
+          ;; Temporarily set the entry node's immediate dominator to itself to
+          ;; simplify the implementation. Restore it to NIL before returning.
           (setf (gethash entry idoms-table) entry)
           idoms-table))
        (changed t))
@@ -400,10 +391,9 @@ and its value will be nil."
                         (setf head-2 (gethash head-2 idoms-table))))))
              (intersection-by-rpo-nums* (idoms-table rpo-nums &rest nodes)
                (let ((inited-nodes (remove-if-not (lambda (node) (gethash node idoms-table)) nodes)))
-                 ;; Special case: INITED-NODES has only one element,
-                 ;; this means the node has only one processed
-                 ;; predecessor. In this case, `reduce' returns the
-                 ;; processed predecessor, and it is correct.
+                 ;; Special case: When INITED-NODES contains one element, the
+                 ;; node has only one processed predecessor. REDUCE returns
+                 ;; that predecessor, which is the correct result.
                  (when inited-nodes
                    (reduce (lambda (acc node) (intersection-by-rpo-nums idoms-table rpo-nums acc node))
                            inited-nodes)))))
@@ -416,12 +406,9 @@ and its value will be nil."
               (setf changed t))))))))
 
 (defun dominator-tarjan-simple (flow-graph)
-  "Compute the dominators of each node within the FLOW-GRAPH
-using the Tarjan algorithm (simple version).
-The result is returned as a hash-table, with nodes of FLOW-GRAPH
-as key and corresponding immediate dominator as values.
-Note that the entry node will always exist as a key,
-and its value will be nil."
+  "Compute dominators using the simple version of the Lengauer-Tarjan algorithm.
+Return a hash table that maps each node in FLOW-GRAPH to its immediate
+dominator. The entry node is always present as a key and maps to NIL."
   (flet ((node-with-min-semi-dom-on-path (node semi-nums-table vtree-parent-table node-with-min-semi-dom-table)
            (cond ((null (gethash node vtree-parent-table))
                   node)
@@ -435,12 +422,9 @@ and its value will be nil."
     (dominator-tarjan-core flow-graph #'vtree-link-nodes #'node-with-min-semi-dom-on-path)))
 
 (defun dominator-tarjan-sophisticated (flow-graph)
-  "Compute the dominators of each node within the FLOW-GRAPH
-using the Tarjan algorithm (sophisticated version).
-The result is returned as a hash-table, with nodes of FLOW-GRAPH
-as key and corresponding immediate dominator as values.
-Note that the entry node will always exist as a key,
-and its value will be nil."
+  "Compute dominators using the sophisticated Lengauer-Tarjan algorithm.
+Return a hash table that maps each node in FLOW-GRAPH to its immediate
+dominator. The entry node is always present as a key and maps to NIL."
   (let ((size-table (make-hash-table))
         (next-subtree-root-table (make-hash-table)))
     (flet ((node-with-min-semi-dom-on-path
@@ -507,9 +491,9 @@ and its value will be nil."
         (vtree-parent-table (make-hash-table))
         (semi-dom-buckets (make-hash-table))
         (nodes-vector (make-sequence 'vector (num-of-nodes flow-graph)))
-        ;; NOTE: Before the semi-dominator of a node n is computed,
-        ;; semi-nums-table[n] is n's preorder number, after n's semi-dominator have computed,
-        ;; semi-nums-table[n] is the preorder number of n's semi-dominator.
+        ;; Before a node N's semi-dominator is computed, SEMI-NUMS-TABLE[N]
+        ;; contains N's preorder number. Afterward, it contains the preorder
+        ;; number of N's semi-dominator.
         (semi-nums-table (make-hash-table))
         (tree-parent-table (make-hash-table))
         (idoms-table (make-hash-table)))
@@ -522,7 +506,7 @@ and its value will be nil."
                       (setf (gethash node node-with-min-semi-dom-table) node)
                       (setf (gethash node tree-parent-table) tree-parent)
                       (incf next-index))))
-    ;; Skip the node with preorder number 0 (entry)
+    ;; Skip the entry node, whose preorder number is 0.
     (loop for i from (1- (length nodes-vector)) above 0
           for node = (elt nodes-vector i)
           do
@@ -534,8 +518,8 @@ and its value will be nil."
                           (gethash node semi-nums-table))
                    (setf (gethash node semi-nums-table)
                          (gethash pred-node-with-min-semi-dom-on-path semi-nums-table)))))
-             ;; At this point, we have computed the semi-dominator of node
-             ;; and now semi-nums-table[node] is the preorder number of node's semi-dominator.
+             ;; At this point, NODE's semi-dominator has been computed, and
+             ;; SEMI-NUMS-TABLE[NODE] contains its preorder number.
              (push node (gethash (elt nodes-vector (gethash node semi-nums-table)) semi-dom-buckets))
              (let ((parent (gethash node tree-parent-table)))
                (funcall vtree-link-nodes-fn parent node
@@ -547,21 +531,22 @@ and its value will be nil."
                    (setf (gethash node idoms-table)
                          (cond ((< (gethash node-with-min-semi-dom-on-path semi-nums-table)
                                    (gethash node semi-nums-table))
-                                ;; In this case, the immediate dominator of node
-                                ;; is the same as the immediate dominator of node-with-min-semi-dom-on-path,
-                                ;; so we link node to node-with-min-semi-dom-on-path in idoms-table
-                                ;; and resolve the link in the end.
+                                ;; NODE has the same immediate dominator as
+                                ;; NODE-WITH-MIN-SEMI-DOM-ON-PATH, so link NODE
+                                ;; to that node in IDOMS-TABLE. The link is
+                                ;; resolved at the end.
                                 node-with-min-semi-dom-on-path)
                                (t
-                                ;; In this case, the immediate dominator of node is just its
-                                ;; semi-dominator which is parent (the parent variable, not node's parent).
+                                ;; NODE's immediate dominator is its
+                                ;; semi-dominator, PARENT. Here PARENT means the
+                                ;; local variable, not necessarily NODE's parent.
                                 parent))))))
-             ;; Clear the bucket so it won't affect the calcuation of
-             ;; other subtree branchs with the same root node as
-             ;; (gethash node tree-parent-table).
+             ;; Clear the bucket so that it does not affect calculations for
+             ;; other subtree branches rooted at
+             ;; (GETHASH NODE TREE-PARENT-TABLE).
              (setf (gethash (gethash node tree-parent-table) semi-dom-buckets) nil))
-    ;; Now, we resolve the links in idoms-table, should do it in preoreder,
-    ;; otherwise, we can't resolve these links by just one step.
+    ;; Resolve links in IDOMS-TABLE in preorder. In any other order, resolving
+    ;; every link would require more than one step.
     (loop for i from 1 below (length nodes-vector)
           for node = (elt nodes-vector i)
           do (unless (eql (gethash node idoms-table)
@@ -571,7 +556,7 @@ and its value will be nil."
     idoms-table))
 
 (defun dominator-tarjan-compress-path (node semi-nums-table vtree-parent-table node-with-min-semi-dom-table)
-  ;; This function assumes that vtree-parent is non-nil.
+  ;; This function assumes that VTREE-PARENT is not NIL.
   (let ((vtree-parent (gethash node vtree-parent-table)))
     (when (gethash vtree-parent vtree-parent-table)
       (dominator-tarjan-compress-path
@@ -585,12 +570,9 @@ and its value will be nil."
 
 (defun doms-table->idoms-table (doms-table)
   "Convert dominators to immediate dominators.
-DOMS-TABLE is a hash table with nodes as keys and
-corresponding dominators hash-set as values.
-Returns immediate dominators as a hash table with nodes as keys
-and corresponding immediate dominator as values.
-Note that the entry node will always exist as a key,
-and its value will be nil."
+DOMS-TABLE is a hash table that maps each node to a hash set containing its
+dominators. Return a hash table that maps each node to its immediate dominator.
+The entry node is always present as a key and maps to NIL."
   (let ((result (make-hash-table)))
     (maphash
      (lambda (node doms)
@@ -684,7 +666,7 @@ and its value will be nil."
 
 (defun make-random-flow-graph (expected-num-of-nodes expected-num-of-edges)
   (when (<= expected-num-of-nodes 0)
-    (error "expected-num-of-nodes should >= 1."))
+    (error "EXPECTED-NUM-OF-NODES must be at least 1."))
   (let* ((entry (make-node :name 'entry))
          (flow-graph (make-flow-graph entry))
          (nodes (make-sequence 'vector expected-num-of-nodes)))
