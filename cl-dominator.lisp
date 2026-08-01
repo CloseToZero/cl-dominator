@@ -321,13 +321,13 @@ A flow graph is valid if and only if both of the following conditions hold:
   "Compute the dominators of each node in FLOW-GRAPH using Purdom's algorithm.
 Return a hash table that maps each node in FLOW-GRAPH to a hash set containing
 its dominators."
-  (let ((result (make-hash-table)))
+  (let ((result (make-hash-table))
+        (reachable-before (reachable (entry flow-graph))))
     (dolist (node (nodes flow-graph))
       (setf (gethash node result) (make-hash-set)))
     (hash-set-add (gethash (entry flow-graph) result) (entry flow-graph))
     (dolist (node (nodes flow-graph))
-      (let ((reachable-before (reachable (entry flow-graph)))
-            (reachable-after (reachable (entry flow-graph) node)))
+      (let ((reachable-after (reachable (entry flow-graph) node)))
         (do-hash-set (node-2 (hash-set-difference reachable-before
                                                   reachable-after))
           (hash-set-add (gethash node-2 result) node))))
