@@ -311,8 +311,8 @@ A flow graph is valid if and only if both of the following conditions hold:
   (unless allow-link-to-entry
     (assert (null (predecessors (entry flow-graph)))))
   (let ((reachable (reachable (entry flow-graph))))
-    (every (lambda (node) (hash-set-exists reachable node))
-           (nodes flow-graph)))
+    (assert (every (lambda (node) (hash-set-exists reachable node))
+                   (nodes flow-graph))))
   (values))
 
 (verify-flow-graph *flow-graph* nil)
