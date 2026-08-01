@@ -363,18 +363,20 @@ The result has the same format as that of DOMINATOR-PURDOM."
 Return a hash table that maps each node in FLOW-GRAPH to its immediate
 dominator. The entry node is always present as a key and maps to NIL."
   (when verify-flow-graph (verify-flow-graph flow-graph nil))
-  (do ((idoms-table
-        (let ((idoms-table (make-hash-table))
-              (entry (entry flow-graph)))
-          ;; Temporarily set the entry node's immediate dominator to itself to
-          ;; simplify the implementation. Restore it to NIL before returning.
-          (setf (gethash entry idoms-table) entry)
-          idoms-table))
-       (changed t))
-      ((not changed)
-       (setf (gethash (entry flow-graph) idoms-table) nil)
-       idoms-table)
-    (labels ((intersection-by-rpo-nums (idoms-table rpo-nums node-1 node-2)
+  (multiple-value-bind (nodes rpo-nums)
+      (nodes-in-reverse-postorder-with-rpo-nums (entry flow-graph))
+    (do ((idoms-table
+          (let ((idoms-table (make-hash-table))
+                (entry (entry flow-graph)))
+            ;; Temporarily set the entry node's immediate dominator to itself to
+            ;; simplify the implementation. Restore it to NIL before returning.
+            (setf (gethash entry idoms-table) entry)
+            idoms-table))
+         (changed t))
+        ((not changed)
+         (setf (gethash (entry flow-graph) idoms-table) nil)
+         idoms-table)
+      (labels ((intersection-by-rpo-nums (idoms-table rpo-nums node-1 node-2)
                (do* ((head-1 node-1)
                      (head-2 node-2)
                      (head-1-rpo-num
@@ -396,8 +398,7 @@ dominator. The entry node is always present as a key and maps to NIL."
                  (when inited-nodes
                    (reduce (lambda (acc node) (intersection-by-rpo-nums idoms-table rpo-nums acc node))
                            inited-nodes)))))
-      (setf changed nil)
-      (multiple-value-bind (nodes rpo-nums) (nodes-in-reverse-postorder-with-rpo-nums (entry flow-graph))
+        (setf changed nil)
         (dolist (node nodes)
           (let ((new-idom (apply #'intersection-by-rpo-nums* idoms-table rpo-nums (predecessors node))))
             (unless (or (null new-idom) (eql (gethash node idoms-table) new-idom))
